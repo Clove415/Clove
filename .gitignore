@@ -17,6 +17,11 @@ tank_save.json
 # NarraFork 内部工作文件
 .narrafork/
 
+# 个人练习文件（不上传到公开仓库）
+练习.py
+自动回复.py
+while循环练习.py
+
 # 系统文件
 .DS_Store
 Thumbs.db
