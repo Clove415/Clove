@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<!--
+    Google自定义搜索引擎页面
+    功能：提供可切换搜索引擎的搜索界面（Google、Bing、百度、Yandex）
+    作者：匿名
+    创建时间：2023年
+    更新：2025年添加Yandex搜索引擎支持
+-->
+<html lang="en">
+<head>
+    <!-- 页面头部元数据 -->
+    <meta charset="UTF-8">
+    <link rel="icon" href="img/log.ico"> <!-- 网站图标 -->
+    <title>首页</title>
+</head>
+<style>
+    /* ========== 全局样式重置 ========== */
+    * {
+        /* 清除所有默认的内边距和外边距 */
+        padding: 0;
+        margin: 0;
+        /* 移除列表样式和文本装饰 */
+        list-style: none;
+        text-decoration: none;
+        /* 禁用文本选择，防止用户选中文本 */
+        moz-user-select: -moz-none;
+        -moz-user-select: none;
+        -o-user-select: none;
+        -khtml-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+
+    /* 链接默认样式 */
+    a {
+        color: black;
+    }
+
+    /* ========== 主容器样式 ========== */
+    .container {
+        display: flex;
+        flex-direction: column; /* 垂直布局 */
+        height: 100vh; /* 全屏高度 */
+        background: url("img/01.jpg") center/cover no-repeat; /* 背景图片 */
+    }
+
+    /* ========== 顶部工具栏（导航栏）样式 ========== */
+    .main-tool {
+        display: flex;
+        justify-content: flex-end; /* 右对齐 */
+        width: 100%;
+        height: 220px; /* 顶部工具栏高度 */
+    }
+
+    /* 工具栏内部列表容器 */
+    .main-tool .list {
+        padding: 15px 10px; /* 工具栏内边距 */
+    }
+
+    /* 工具栏每个选项（span） */
+    .main-tool .list span {
+        padding: 5px 10px; /* 选项内边距 */
+        transition: all .3s; /* 鼠标悬停动画过渡效果 */
+        border-radius: 7%; /* 圆角边框 */
+    }
+
+    /* 工具栏选项鼠标悬停效果 */
+    .main-tool .list span:hover {
+        background: #A4D3EE; /* 鼠标悬停时的背景色 */
+    }
+
+    /* ========== Logo区域样式 ========== */
+    .main-log {
+        display: flex;
+        justify-content: center; /* 水平居中 */
+        align-items: center; /* 垂直居中 */
+        width: 100%;
+        height: 150px; /* Logo区域高度 */
+    }
+
+    /* Logo背景图片容器 */
+    .main-log .log {
+        width: 350px;
+        height: 70%;
+        background: url("img/Clannad_Logo.svg") no-repeat;
+        background-size: 100%; /* 图片自适应容器大小 */
+    }
+
+    /* ========== 搜索框容器样式 ========== */
+    .search-box {
+        display: flex;
+        justify-content: center; /* 水平居中 */
+        align-items: center; /* 垂直居中 */
+        height: 100px; /* 搜索框容器高度 */
+    }
+
+    /* ========== 输入框容器样式 ========== */
+    .search-box .input-box {
+        overflow: hidden;
+        display: flex;
+        width: 30%;
+        min-width: 400px; /* 最小宽度，防止过小 */
+        height: 45px; /* 输入框高度 */
+        border: 1px solid #DCDCDC; /* 边框样式 */
+        background: white; /* 背景色 */
+        border-radius: 32px; /* 圆角边框 */
+        box-shadow: 1px 1px 6px 1px #DCDCDC; /* 阴影效果 */
+    }
+
+    /* 搜索图标容器（左侧放大镜图标） */
+    .search-box .input-box .font-img {
+        display: flex;
+        justify-content: center; /* 水平居中 */
+        align-items: center; /* 垂直居中 */
+        width: 32px; /* 固定宽度 */
+        padding: 0 7px; /* 左右内边距 */
+        text-align: center;
+    }
+
+    /* 搜索表单样式 */
+    .search-box .input-box form {
+        display: flex;
+        justify-content: flex-start; /* 左对齐 */
+        align-items: center; /* 垂直居中 */
+        flex: 1; /* 占据剩余空间 */
+    }
+
+    /* 搜索输入框样式 */
+    .search-box .input-box form input {
+        width: 100%;
+        font-size: 16px;
+        border: 0; /* 移除边框 */
+        outline: none; /* 移除焦点轮廓 */
+    }
+
+    /* ========== 搜索引擎切换按钮样式 ========== */
+    .browser-log {
+        width: 45px; /* 切换按钮宽度 */
+        padding: 0 7px; /* 左右内边距 */
+        height: 100%; /* 高度100%继承父容器 */
+    }
+
+    /* 切换按钮内图标的容器 */
+    .browser-log .font-img {
+        position: relative; /* 相对定位，为绝对定位的子元素提供参考 */
+        width: 100%;
+        height: 100%;
+    }
+
+    /* ========== 搜索引擎图标显示控制 ========== */
+    .google[data-browser='google'] {
+        display: block !important; /* 显示Google图标 */
+    }
+
+    .edge[data-browser='edge'] {
+        display: block !important; /* 显示Bing图标 */
+    }
+
+    .baidu[data-browser='baidu'] {
+        display: block !important; /* 显示百度图标 */
+    }
+
+    .yandx[data-browser='yandx'] {
+        display: block !important; /* 显示Yandex图标 */
+    }
+
+    /* 隐藏搜索引擎图标（单词拼写错误：hiiden 应为 hidden） */
+    #browser-log .stats[data-browser='hiiden'] {
+        display: none !important; /* 隐藏所有标记为hidden的图标 */
+    }
+</style>
+<body>
+<div class="app" id="app">
+    <div class="container">
+        <!-- 顶部工具栏：包含Gmail、图片、应用等链接 -->
+        <div class="main-tool">
+            <div class="list">
+                <span class="submit-1"><a href="https://mail.google.com/mail/?tab=rm&ogbl">Gmail</a></span>
+                <span class="submit-2"><a href="https://www.google.com/imghp?hl=zh-CN&tab=ri&ogbl">图片</a></span>
+                <span class="submit-3">应用</span>
+            </div>
+        </div>
+
+        <!-- Logo区域：显示Clannad背景图 -->
+        <div class="main-log">
+            <div class="log">
+            </div>
+        </div>
+
+        <!-- 搜索框区域 -->
+        <div class="search-box">
+            <div class="input-box">
+                <!-- 左侧搜索图标（放大镜） -->
+                <div class="font-img">
+                    <svg t="1699837891030" class="icon" viewBox="0 0 1303 1024" version="1.1"
+                         xmlns="http://www.w3.org/2000/svg" p-id="9748" width="100%" height="100%">
+                        <path d="M39.896104 0h1024v1024H39.896104z" fill="#000000" fill-opacity="0" opacity=".01"
+                              p-id="9749"></path>
+                        <path d="M980.513247 891.392L804.604675 715.483429a346.697143 346.697143 0 0 0 78.848-220.525715A349.037714 349.037714 0 0 0 534.780675 146.285714 349.037714 349.037714 0 0 0 186.181818 494.957714a348.964571 348.964571 0 0 0 348.598857 348.598857 346.843429 346.843429 0 0 0 220.525715-78.848l175.908571 175.981715a34.742857 34.742857 0 0 0 49.371429 0 34.889143 34.889143 0 0 0-0.073143-49.298286zM255.886961 494.957714A279.259429 279.259429 0 0 1 534.780675 215.990857 279.259429 279.259429 0 0 1 813.747532 494.957714 279.259429 279.259429 0 0 1 534.780675 773.851429 279.259429 279.259429 0 0 1 255.886961 494.957714z"
+                              fill="#8C8C8C" p-id="9750"></path>
+                    </svg>
+                </div>
+
+                <!-- 搜索表单 -->
+                <form id="search-table" action="http://www.google.com/search" target="_blank">
+                    <input type="text" autocomplete="off" name="q"
+                           placeholder="右侧切换搜索引擎，一起冲浪吧！<(￣︶￣)↗[GO!]" id="search-input">
+                </form>
+
+                <!-- 搜索引擎切换按钮（右侧） -->
+                <div class="browser-log" id="switch-btn">
+                    <div class="font-img" id="browser-log">
+                        <!-- Google搜索引擎图标 -->
+                        <div class="google stats" style="width: 100%; height: 32px; position: absolute;display: none"
+                             data-browser="google">
+                            <svg t="1699839987571" class="icon" viewBox="0 0 1024 1024" version="1.1"
+                                 xmlns="http://www.w3.org/2000/svg" p-id="11072" width="100%" height="100%">
+                                <path d="M213.1976 515.482c0-33.485 5.632-65.588 15.616-95.693L53.4536 287.155A511.053 511.053 0 0 0 0.0016 515.482c0 82.048 19.2 159.436 53.35 228.147L228.6606 610.765c-10.24-30.72-15.437-62.9-15.463-95.283"
+                                      fill="#FBBC05" p-id="11073"></path>
+                                <path d="M521.2426 210.944a303.36 303.36 0 0 1 191.872 67.891l151.629-149.913C772.3536 49.306 653.9006 0.077 521.2436 0.077c-205.978 0-383.028 116.659-467.79 287.078L228.9416 419.79c40.397-121.498 155.597-208.87 292.352-208.87"
+                                      fill="#EA4335" p-id="11074"></path>
+                                <path d="M523.4706 813.235c-137.473 0-253.236-86.81-293.889-207.565L53.3256 737.51c85.172 169.37 263.092 285.261 470.144 285.261 127.719 0 249.677-44.39 341.248-127.641L697.3706 768.46c-47.18 29.108-106.65 44.8-173.952 44.8"
+                                      fill="#34A853" p-id="11075"></path>
+                                <path d="M1023.4376 510.618c0-30.26-4.787-62.874-11.904-93.133H523.4186v197.888h280.935c-14.004 67.481-52.224 119.347-106.957 153.088L864.7176 895.13c96.18-87.373 158.72-217.55 158.72-384.512"
+                                      fill="#4285F4" p-id="11076"></path>
+                            </svg>
+                        </div>
+
+                        <!-- Bing搜索引擎图标 -->
+                        <div class="edge stats" style="width: 100%; height: 32px; position: absolute; display: none"
+                             data-browser="google">
+                            <svg t="1699840424551" class="icon" viewBox="0 0 1024 1024" version="1.1"
+                                 xmlns="http://www.w3.org/2000/svg" p-id="12501" width="100%" height="100%">
+                                <path d="M923.69886 761.758375a328.212997 328.212997 0 0 1-41.986312 18.793873 408.90669 408.90669 0 0 1-143.553199 25.991526c-189.138338 0-353.884628-129.957632-353.884629-297.10314a125.479092 125.479092 0 0 1 65.578621-109.16441c-171.144204 7.197653-215.129864 185.539511-215.129865 289.905486 0 295.503661 272.311222 325.493884 331.092059 325.493884 31.589701 0 79.174188-9.197002 107.964802-18.394003l5.198305-1.599479a511.833134 511.833134 0 0 0 266.313178-211.131168 15.994785 15.994785 0 0 0-4.798436-21.99283 16.834512 16.834512 0 0 0-16.794524-0.799739z"
+                                      fill="#0F5197" p-id="12502"></path>
+                                <path d="M422.662206 965.29202A317.816387 317.816387 0 0 1 331.891798 880.119787a322.734783 322.734783 0 0 1 117.961543-479.843563 132.47681 132.47681 0 0 1 61.979793-15.994786 130.317514 130.317514 0 0 1 102.766497 51.983053 128.79801 128.79801 0 0 1 25.591657 74.775622c0-0.799739 97.968061-318.29623-319.895709-318.296231-175.54277 0-319.895709 166.745638-319.895709 312.698056a521.50998 521.50998 0 0 0 48.384226 223.926996 512.113043 512.113043 0 0 0 625.396111 268.312526 303.02121 303.02121 0 0 1-251.518001-32.38944z"
+                                      fill="#0C88DA" p-id="12503"></path>
+                                <path d="M609.001456 595.412606c-3.198957 3.998696-13.195698 9.996741-13.195698 22.792569 0 10.396611 6.797784 20.393351 18.793873 28.790614 57.581228 39.986964 165.945899 34.788658 166.345769 34.788659a238.922108 238.922108 0 0 0 121.160499-33.18918 245.120087 245.120087 0 0 0 121.56037-211.531038c1.199609-89.570799-31.989571-149.151374-45.185269-175.54277a440.496391 440.496391 0 0 0-83.732702-113.842886 493.639066 493.639066 0 0 0-142.673486-97.088347A582.530086 582.530086 0 0 0 511.833134 0.006718 511.833134 511.833134 0 0 0 0 504.642199c1.999348-145.952417 147.152026-263.91396 319.895709-263.91396 13.995437 0 93.969365 1.199609 167.945247 40.386833 65.178751 34.388789 99.567539 75.575361 123.159848 116.761934 24.791917 42.786051 29.190483 96.368582 29.190484 117.961543s-10.79648 53.182662-31.189832 79.574057z"
+                                      fill="#2CC3D5" p-id="12504"></path>
+                                <path d="M649.548237 15.12179s372.638514 385.154434-48.544174 593.246592c0 0-27.231122 45.225256 102.846471 68.61763 0 0 215.489747 46.824734 302.461393-142.513538 17.51429-59.380641 33.109206-151.390644-13.195698-253.797259a427.860511 427.860511 0 0 0-76.974905-113.682937 546.381871 546.381871 0 0 0-113.083134-94.68913c-68.457682-34.988593-153.509953-57.181358-153.509953-57.181358z"
+                                      fill="#49D668" p-id="12505"></path>
+                            </svg>
+                        </div>
+
+                        <!-- 百度搜索引擎图标 -->
+                        <div class="baidu stats" style="width: 100%; height: 32px; position: absolute; display: none"
+                             data-browser="google">
+                            <svg t="1699840461008" class="icon" viewBox="0 0 1024 1024" version="1.1"
+                                 xmlns="http://www.w3.org/2000/svg" p-id="13661" width="100%" height="100%">
+                                <path d="M186.216 612.094c-56.315 0-100.376-66.305-100.376-151.017s44.062-151.016 100.376-151.016S286.59 376.365 286.59 461.077s-44.064 151.017-100.373 151.017z m200.646-200.618c-56.206 0-100.273-66.105-100.273-150.464S330.656 110.55 386.862 110.55s100.28 66.105 100.28 150.462-44.07 150.464-100.28 150.464z m251.04 0c-56.307 0-100.376-66.105-100.376-150.464S581.595 110.55 637.902 110.55s100.375 66.105 100.375 150.462-44.068 150.464-100.375 150.464z m200.75 200.618c-56.31 0-100.375-66.305-100.375-151.017s44.064-151.016 100.376-151.016 100.375 66.304 100.375 151.016-44.064 151.017-100.375 151.017z m-150.56 300.922c-43.566 0-73.024-14.744-98.976-27.733-24.086-12.039-44.866-22.422-76.682-22.422-31.67 0-52.445 10.383-76.536 22.422-26.05 12.989-55.561 27.733-99.121 27.733-27.906 0-54.151-15.195-72.122-41.68-31.463-46.444-31.966-116.906-1.405-193.341C318.31 540.47 409.095 461.632 512.386 461.632s194.122 78.838 249.128 216.363c30.564 76.435 30.061 146.897-1.404 193.341-17.918 26.485-44.216 41.68-72.122 41.68h0.104z m-175.658-100.31"
+                                      fill="#2832E1" p-id="13662"></path>
+                                <path d="M429.166 681.081q25.405 2.211 27.46 47.26-2.056 43.973-27.46 46.162-29.507 0-28.475-46.162-1.025-47.244 28.475-47.26z m-8.136-27.477q-56.966 3.297-61.017 74.737 4.052 70.349 56.95 72.538 28.461 0 39.662-21.98 0 3.295 1.015 9.889v9.893h39.663q-1.027-13.188-1.018-28.574V595.351h-39.66v78.035q-13.233-18.676-35.595-19.782z m243.456 146.113V786.53q-1.106-7.68-1.097-12.091V657.935h-42.863v85.727q-1.112 29.68-25.28 31.873-24.19 0-25.279-31.873v-85.727h-41.766v92.325q0 13.188 2.198 21.98 8.786 26.376 47.26 29.675 28.569 0 42.867-19.782l2.198 17.584h41.762z"
+                                      fill="#FFFFFF" p-id="13663"></path>
+                            </svg>
+                        </div>
+
+                        <!-- Yandex搜索引擎图标 -->
+                        <div class="yandx stats" style="width: 100%; height: 32px; position: absolute; display: none"
+                             data-browser="google">
+                            <svg t="1764503711066" class="icon" viewBox="0 0 1024 1024" version="1.1"
+                                 xmlns="http://www.w3.org/2000/svg" p-id="2870" width="100%" height="100%">
+                                <path d="M512 1024c282.781538 0 512-229.218462 512-512S794.781538 0 512 0 0 229.218462 0 512s229.218462 512 512 512z"
+                                      fill="#FC3F1D" p-id="2871"></path>
+                                <path d="M526.966154 569.619692c31.980308 68.253538 40.487385 91.726769 40.487384 174.907077v108.819693h-110.907076v-183.492924L247.453538 213.346462h115.2l164.273231 356.27323z m136.507077-356.27323l-136.546462 309.326769h113.073231l136.546462-309.326769h-113.073231z"
+                                      fill="#FFFFFF" p-id="2872"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ===========================
+       搜索引擎切换功能脚本
+       =========================== */
+
+    // 获取页面元素
+    const search = document.getElementById('search-table');      // 搜索表单
+    const searchInput = document.getElementById('search-input'); // 搜索输入框
+    const browser = document.getElementById('switch-btn');       // 切换按钮
+    const browserList = document.querySelectorAll('#browser-log div'); // 所有搜索引擎图标
+
+    // 控制器：跟踪当前切换到第几个搜索引擎
+    let controllerValue = 0;
+
+    // 搜索引擎名称数组（用于data-browser属性和显示控制）
+    let logArr = ['google', 'edge', 'baidu', 'yandx'];
+
+    // 搜索引擎URL数组（对应每个搜索引擎的搜索地址）
+    let searchArr = [
+        'http://www.google.com/search',        // Google
+        'http://cn.bing.com/search?',          // Bing
+        'http://www.baidu.com/baidu',          // 百度
+        'https://yandex.com/search/?text='     // Yandex
+    ];
+
+
+    /* ===========================
+       快捷键功能
+       按Insert键快速切换搜索引擎
+       =========================== */
+    window.addEventListener('keyup', (e) => {
+        switch (e.code) {
+            case 'Insert':  // Insert键触发
+                browser.click(); // 模拟点击切换按钮
+                break
+        }
+    })
+
+
+    /* ===========================
+       搜索引擎切换逻辑
+       =========================== */
+    browser.onclick = function () {
+        let a = true; // 标记变量，控制切换流程
+
+        // 重置搜索输入框的name属性为默认值
+        searchInput.name = 'q';
+
+        // 隐藏所有搜索引擎图标
+        for (let i = 0; i < browserList.length; i++) {
+            browserList[i].setAttribute('data-browser', 'hidden');
+        }
+
+        // 循环切换搜索引擎
+        for (controllerValue; controllerValue < browserList.length;) {
+            // 如果不是最后一个搜索引擎，则切换到下一个
+            if (browserList[controllerValue + 1] != null && a) {
+                // 显示下一个搜索引擎图标
+                browserList[controllerValue + 1].setAttribute('data-browser', `${logArr[controllerValue + 1]}`);
+
+                // 更新搜索表单的action属性（搜索地址）
+                search.action = searchArr[controllerValue + 1];
+
+                // 调试信息：输出当前选中的搜索引擎
+                console.log(browserList[controllerValue + 1].getAttribute('data-browser'));
+
+                // 根据不同搜索引擎设置对应的搜索参数名称
+                if (logArr[controllerValue + 1] === 'baidu') {
+                    // 百度使用 'wd' 作为搜索参数
+                    searchInput.name = 'wd'
+                } else if (logArr[controllerValue + 1] === 'yandx') {
+                    // Yandex使用 'text' 作为搜索参数
+                    searchInput.name = 'text'
+                } else {
+                    // Google和Bing使用 'q' 作为搜索参数
+                    searchInput.name = 'q'
+                }
+
+                // 标记已处理，避免重复执行
+                a = false;
+
+                // 移动到下一个搜索引擎
+                ++controllerValue;
+
+            } else {
+                // 如果是最后一个搜索引擎，则回到第一个
+                browserList[controllerValue - 2].setAttribute('data-browser', `${logArr[controllerValue - 2]}`)
+                search.action = searchArr[controllerValue - 2];
+                controllerValue = 0; // 重置为第一个
+            }
+
+            // 退出循环，每次点击只切换一次
+            console.log(controllerValue)
+            break
+        }
+    }
+</script>
+</body>
+</html>
