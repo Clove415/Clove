@@ -44,6 +44,7 @@ namespace IronDawn.Multiplayer
         public event Action<ShotData> ShotArrived;
         public event Action<DeathData> DeathArrived;
         public event Action<RespawnData> RespawnArrived;
+        public event Action<ThrowableData> ThrowableArrived;
         public event Action<string> Terminated;
 
         private readonly List<RosterEntry> _roster = new List<RosterEntry>();
@@ -304,6 +305,15 @@ namespace IronDawn.Multiplayer
                     break;
                 }
 
+                case NetMsg.Throwable:
+                {
+                    ThrowableData d = NetCodec.ReadThrowable(r);
+                    if (d.owner != peer.id) return;
+                    Relay(raw, peer.id);
+                    if (ThrowableArrived != null) ThrowableArrived(d);
+                    break;
+                }
+
                 case NetMsg.Ping:
                     _socket.Send(NetCodec.Pong(), from);
                     break;
@@ -373,6 +383,14 @@ namespace IronDawn.Multiplayer
                     RespawnData d = NetCodec.ReadRespawn(r);
                     if (d.id == LocalId) return;
                     if (RespawnArrived != null) RespawnArrived(d);
+                    break;
+                }
+
+                case NetMsg.Throwable:
+                {
+                    ThrowableData d = NetCodec.ReadThrowable(r);
+                    if (d.owner == LocalId) return;
+                    if (ThrowableArrived != null) ThrowableArrived(d);
                     break;
                 }
             }
@@ -479,6 +497,17 @@ namespace IronDawn.Multiplayer
 
             d.id = LocalId;
             byte[] data = NetCodec.Respawn(d);
+
+            if (CurrentRole == Role.Host) Relay(data, LocalId);
+            else SendToHost(data);
+        }
+
+        public void PublishThrowable(ThrowableData d)
+        {
+            if (CurrentRole == Role.None || !InMatch || _socket == null) return;
+
+            d.owner = LocalId;
+            byte[] data = NetCodec.Throwable(d);
 
             if (CurrentRole == Role.Host) Relay(data, LocalId);
             else SendToHost(data);

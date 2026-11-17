@@ -16,6 +16,7 @@ namespace IronDawn.Multiplayer
     {
         public PlayerVisual visual;
         public Transform weaponPivot;
+        public WeaponModels weaponModels;
 
         public byte NetId { get; private set; }
         public string PlayerName { get; private set; }
@@ -43,13 +44,14 @@ namespace IronDawn.Multiplayer
         private Vector3 _baseScale = Vector3.one;
         private Collider _collider;
 
-        public void Setup(byte id, string playerName, int slot, PlayerVisual playerVisual, Transform weapon)
+        public void Setup(byte id, string playerName, int slot, PlayerVisual playerVisual, Transform weapon, WeaponModels models)
         {
             NetId = id;
             PlayerName = playerName;
             Slot = slot;
             visual = playerVisual;
             weaponPivot = weapon;
+            weaponModels = models;
 
             Health01 = 1f;
             Alive = true;
@@ -81,6 +83,11 @@ namespace IronDawn.Multiplayer
                 visual.SetCrouch((d.flags & PlayerFlags.Crouching) != 0);
                 visual.SetLean(LeanOf(d.flags));
             }
+
+            if (weaponModels != null)
+                weaponModels.Show((WeaponSlot)d.weapon, (ThrowableKind)d.throwable);
+
+            if (visual != null) visual.SetHoldPose((WeaponSlot)d.weapon);
 
             Snap s;
             s.time = Time.time;
@@ -139,6 +146,8 @@ namespace IronDawn.Multiplayer
 
             float renderTime = Time.time - InterpDelay;
 
+            Vector3 before = transform.position;
+
             Vector3 pos;
             float yaw;
             if (Sample(renderTime, out pos, out yaw))
@@ -147,9 +156,31 @@ namespace IronDawn.Multiplayer
                 transform.rotation = Quaternion.Euler(0f, yaw, 0f);
             }
 
+            FeedVisual(before);
+
             // 只留两个夹住渲染时刻的样本，别让列表无限长
             while (_snaps.Count > 2 && _snaps[1].time < renderTime - InterpDelay)
                 _snaps.RemoveAt(0);
+        }
+
+        /// <summary>用插值后的位移推算速度，让远端玩家的四肢也能摆起来。</summary>
+        private void FeedVisual(Vector3 before)
+        {
+            if (visual == null) return;
+
+            Vector3 delta = transform.position - before;
+            delta.y = 0f;
+
+            float speed = Time.deltaTime > 0f ? delta.magnitude / Time.deltaTime : 0f;
+
+            // 重生瞬移会产生一个巨大的假速度，这里直接吃掉
+            if (speed > 30f) speed = 0f;
+
+            visual.Speed = Mathf.Lerp(visual.Speed, speed, 1f - Mathf.Exp(-10f * Time.deltaTime));
+
+            // 竖直方向几乎没动就当作站在地上，避免跳跃时还在跑跑步动画
+            visual.Grounded = Mathf.Abs(delta.y) < 0.06f || transform.position.y < 0.3f;
+            visual.Aiming = (_flags & PlayerFlags.Aiming) != 0;
         }
 
         private void ApplyWeaponRotation()

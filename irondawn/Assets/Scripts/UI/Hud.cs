@@ -23,6 +23,8 @@ namespace IronDawn
         private GUIStyle _big;
         private GUIStyle _small;
         private GUIStyle _small_Center;
+        private GUIStyle _weaponText;
+        private GUIStyle _weaponTextRight;
         private bool _stylesReady;
 
         private Texture2D _white;
@@ -86,9 +88,12 @@ namespace IronDawn
             _big.fontSize = 46;
             _big.alignment = TextAnchor.MiddleCenter;
 
-            _namePlate = new GUIStyle(_text);
-            _namePlate.fontSize = 14;
-            _namePlate.alignment = TextAnchor.UpperCenter;
+            // 武器带按原尺寸一半缩小（16 → 9，行高 20 → 11）
+            _weaponText = new GUIStyle(_text);
+            _weaponText.fontSize = 9;
+
+            _weaponTextRight = new GUIStyle(_weaponText);
+            _weaponTextRight.alignment = TextAnchor.UpperRight;
 
             _stylesReady = true;
         }
@@ -131,10 +136,11 @@ namespace IronDawn
 
             DrawVitals(w, h, health);
             DrawAmmo(w, h);
+            DrawWeaponSlots(w, h);
             DrawScoreboard(w, h);
             DrawConnectionLine(w, h);
             DrawStatusLine(w, h);
-            DrawNameplates(w, h);
+            DrawFlashBlind(w, h);
 
             if (!alive) DrawDeathScreen(w, h, health);
             if (Cursor.lockState != CursorLockMode.Locked) DrawPausePanel(w, h);
@@ -263,11 +269,9 @@ namespace IronDawn
 
             float y = h - 62f;
 
-            string ammo = combat.Reloading
-                ? "换弹中…"
-                : combat.Ammo + " / " + combat.magazineSize;
+            string ammo = combat.Reloading ? "换弹中…" : combat.AmmoLabel;
 
-            GUI.Label(new Rect(w - 280f, y - 26f, 250f, 24f), "弹匣", _textRight);
+            GUI.Label(new Rect(w - 280f, y - 26f, 250f, 24f), combat.WeaponName, _textRight);
             GUI.Label(new Rect(w - 280f, y + 2f, 250f, 30f), ammo, _textRight);
 
             if (combat.Reloading)
@@ -277,6 +281,66 @@ namespace IronDawn
                 DrawRect(new Rect(x, y + 34f, barW, 5f), new Color(0.12f, 0.12f, 0.14f, 0.9f));
                 DrawRect(new Rect(x, y + 34f, barW * combat.ReloadProgress, 5f), new Color(0.85f, 0.78f, 0.42f, 0.95f));
             }
+        }
+
+        /// <summary>
+        /// 右侧中央的武器带：四个槽位 + 投掷物余量。
+        /// 尺寸按原来的一半缩小，紧贴屏幕右缘、垂直居中，
+        /// 并且不画任何底板或边框——只有文字，当前槽位用白色区分。
+        /// </summary>
+        private void DrawWeaponSlots(float w, float h)
+        {
+            PlayerCombat combat = runtime.LocalCombat;
+            if (combat == null) return;
+
+            const float rowH = 11f;
+            const float labelW = 68f;
+            const float valueW = 46f;
+            const float rows = 4f;
+
+            // 右缘对齐：数值列的右边界正好落在屏幕右边
+            float x = w - (labelW + valueW);
+            float y = (h - rowH * rows) * 0.5f;
+
+            DrawSlotRow(x, y + rowH * 0f, labelW, valueW,
+                "1 步枪", combat.Slot == WeaponSlot.Primary,
+                combat.RifleAmmo + "/" + WeaponDefs.Rifle.magazine);
+
+            DrawSlotRow(x, y + rowH * 1f, labelW, valueW,
+                "2 手枪", combat.Slot == WeaponSlot.Secondary,
+                combat.PistolAmmo + "/" + WeaponDefs.Pistol.magazine);
+
+            DrawSlotRow(x, y + rowH * 2f, labelW, valueW,
+                "3 匕首", combat.Slot == WeaponSlot.Melee, "—");
+
+            string throwableLine = WeaponDefs.ThrowableName(combat.Throwable)
+                + "×" + combat.CountOf(combat.Throwable);
+
+            DrawSlotRow(x, y + rowH * 3f, labelW, valueW,
+                "4 " + throwableLine, combat.Slot == WeaponSlot.Throwable,
+                combat.SmokeCount + "/" + combat.HeCount + "/" + combat.FireCount + "/" + combat.FlashCount);
+        }
+
+        private void DrawSlotRow(float x, float y, float labelW, float valueW, string label, bool selected, string right)
+        {
+            Color prev = GUI.color;
+
+            // 选中项用白色，其余压暗——没有底板，全靠字色区分
+            GUI.color = selected ? Color.white : new Color(0.70f, 0.74f, 0.80f, 0.85f);
+
+            GUI.Label(new Rect(x, y, labelW, 11f), label, _weaponText);
+            GUI.Label(new Rect(x + labelW, y, valueW, 11f), right, _weaponTextRight);
+
+            GUI.color = prev;
+        }
+
+        /// <summary>闪光弹：整屏纯白，最后半秒淡出。</summary>
+        private void DrawFlashBlind(float w, float h)
+        {
+            float strength = runtime.BlindStrength;
+            if (strength <= 0.01f) return;
+
+            DrawRect(new Rect(0f, 0f, w, h), new Color(1f, 1f, 1f, Mathf.Clamp01(strength)));
         }
 
         // ---------------- 右上角：记分板 ----------------
@@ -339,49 +403,6 @@ namespace IronDawn
             GUI.Label(new Rect(0f, 74f, w, 26f), runtime.StatusLine, _textCenter);
             GUI.color = prev;
         }
-
-        // ---------------- 名字牌 ----------------
-
-        private void DrawNameplates(float w, float h)
-        {
-            Camera cam = runtime.ActiveCamera;
-            if (cam == null) return;
-
-            foreach (RemotePlayer rp in runtime.Remotes)
-            {
-                if (rp == null) continue;
-
-                Vector3 world = rp.transform.position + Vector3.up * 2.05f;
-                Vector3 screen = cam.WorldToScreenPoint(world);
-                if (screen.z <= 0.1f) continue;
-
-                float dist = Vector3.Distance(cam.transform.position, rp.transform.position);
-                float alpha = Mathf.Clamp01(1f - (dist - 45f) / 35f);
-                if (alpha <= 0.03f) continue;
-
-                float x = screen.x;
-                float y = h - screen.y;
-
-                float boxW = 132f;
-                float bx = x - boxW * 0.5f;
-
-                Color prev = GUI.color;
-                GUI.color = new Color(1f, 1f, 1f, alpha);
-
-                DrawRect(new Rect(bx, y - 2f, boxW, 20f), new Color(0f, 0f, 0f, 0.42f * alpha));
-                GUI.Label(new Rect(bx, y - 3f, boxW, 20f), rp.PlayerName, _namePlate);
-
-                Color bar = Color.Lerp(new Color(0.75f, 0.16f, 0.16f), new Color(0.30f, 0.74f, 0.42f), rp.Health01);
-                bar.a = alpha;
-
-                DrawRect(new Rect(bx + 12f, y + 20f, boxW - 24f, 4f), new Color(0f, 0f, 0f, 0.5f * alpha));
-                DrawRect(new Rect(bx + 12f, y + 20f, (boxW - 24f) * (rp.Alive ? rp.Health01 : 0f), 4f), bar);
-
-                GUI.color = prev;
-            }
-        }
-
-        private GUIStyle _namePlate;
 
         // ---------------- 死亡 / 暂停 ----------------
 

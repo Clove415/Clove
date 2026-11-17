@@ -40,6 +40,13 @@ namespace IronDawn
         /// <summary>由 PlayerController 写入的俯仰角。</summary>
         public float Pitch { get; set; }
 
+        /// <summary>
+        /// 由 PlayerController 写入的水平朝向。
+        /// 相机用自己的 yaw，而不是身体的朝向——身体在平移时会转向移动方向，
+        /// 相机如果跟着身体转，视角就会被拖着甩。
+        /// </summary>
+        public float Yaw { get; set; }
+
         public bool IsAiming { get; set; }
 
         private Camera _camera;
@@ -99,7 +106,7 @@ namespace IronDawn
             _currentFov = Mathf.Lerp(_currentFov, targetFov, 1f - Mathf.Exp(-fovSmooth * dt));
             if (_camera != null) _camera.fieldOfView = _currentFov;
 
-            Quaternion rot = Quaternion.Euler(Pitch, playerRoot.eulerAngles.y, 0f);
+            Quaternion rot = Quaternion.Euler(Pitch, Yaw, 0f);
 
             Vector3 shoulderWorld = rot * _currentShoulder;
             Vector3 anchor = head.position + ClampShoulder(head.position, shoulderWorld);

@@ -54,12 +54,20 @@ namespace IronDawn
         private float _verticalVelocity;
         private Vector3 _horizontalVelocity;
 
+        /// <summary>身体朝向。可以与 <see cref="_yaw"/>（视线朝向）不同：平移时身体转向移动方向。</summary>
+        private float _bodyYaw;
+        private float _fireFacingUntil;
+
+        /// <summary>身体转向的角速度（度/秒）。</summary>
+        public float turnSpeed = 720f;
+
         void Awake()
         {
             _controller = GetComponent<CharacterController>();
             if (health == null) health = GetComponent<Health>();
             if (health == null) health = gameObject.AddComponent<Health>();
             _yaw = transform.eulerAngles.y;
+            _bodyYaw = _yaw;
         }
 
         void Start()
@@ -94,6 +102,7 @@ namespace IronDawn
                 }
 
                 _horizontalVelocity = Vector3.MoveTowards(_horizontalVelocity, Vector3.zero, acceleration * Time.deltaTime);
+                FeedVisual();
                 ApplyGravityAndMove();
                 return;
             }
@@ -102,6 +111,17 @@ namespace IronDawn
             HandleStance();
             HandleLean();
             Move();
+            FeedVisual();
+        }
+
+        /// <summary>把移动状态喂给模型，走路摆臂摆腿全靠这个速度。</summary>
+        private void FeedVisual()
+        {
+            if (visual == null) return;
+
+            visual.Speed = _horizontalVelocity.magnitude;
+            visual.Grounded = _controller != null && _controller.isGrounded;
+            visual.Aiming = IsAiming;
         }
 
         private void Look()
@@ -114,8 +134,12 @@ namespace IronDawn
             _yaw += mx * lookSensitivity;
             _pitch = Mathf.Clamp(_pitch - my * lookSensitivity, minPitch, maxPitch);
 
-            transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
-            if (cameraRig != null) cameraRig.Pitch = _pitch;
+            // 身体朝向不在这里改：由 UpdateFacing 按"是否瞄准/移动"决定
+            if (cameraRig != null)
+            {
+                cameraRig.Pitch = _pitch;
+                cameraRig.Yaw = _yaw;
+            }
         }
 
         public void AddRecoil(float degrees)
@@ -128,10 +152,15 @@ namespace IronDawn
         public void SnapRotation(float yaw, float pitch)
         {
             _yaw = yaw;
+            _bodyYaw = yaw;
             _pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
-            transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
-            if (cameraRig != null) cameraRig.Pitch = _pitch;
+            transform.rotation = Quaternion.Euler(0f, _bodyYaw, 0f);
+            if (cameraRig != null)
+            {
+                cameraRig.Pitch = _pitch;
+                cameraRig.Yaw = _yaw;
+            }
 
             _horizontalVelocity = Vector3.zero;
             _verticalVelocity = 0f;
@@ -226,16 +255,25 @@ namespace IronDawn
             if (Input.GetKey(KeyCode.D)) h += 1f;
             if (Input.GetKey(KeyCode.A)) h -= 1f;
 
-            Vector3 wish = transform.forward * v + transform.right * h;
+            // 输入方向必须以视线（相机）为基准。
+            // 如果拿身体朝向当基准，身体一转 WASD 的参考系就跟着转，会原地打转。
+            Quaternion viewRot = Quaternion.Euler(0f, _yaw, 0f);
+            Vector3 wish = viewRot * (Vector3.forward * v + Vector3.right * h);
             if (wish.sqrMagnitude > 1f) wish.Normalize();
 
             float speed;
             if (IsCrouching) speed = IsAiming ? crouchAimSpeed : crouchSpeed;
             else speed = IsAiming ? aimSpeed : walkSpeed;
 
-            // 瞄准时角色朝相机方向；平时朝移动方向，但保持上半身随相机
-            if (IsAiming && weaponPivot != null)
-                weaponPivot.rotation = Quaternion.Euler(_pitch, _yaw, 0f);
+            UpdateFacing(wish);
+
+            // 手里的枪：瞄准时指向准心（带俯仰），平时跟着身体走
+            if (weaponPivot != null)
+            {
+                float weaponYaw = IsAiming ? _yaw : transform.eulerAngles.y;
+                float weaponPitch = IsAiming ? _pitch : 0f;
+                weaponPivot.rotation = Quaternion.Euler(weaponPitch, weaponYaw, 0f);
+            }
 
             float accel = acceleration * (_controller.isGrounded ? 1f : airControl);
             _horizontalVelocity = Vector3.MoveTowards(
@@ -246,6 +284,41 @@ namespace IronDawn
                 _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
 
             ApplyGravityAndMove();
+        }
+
+        /// <summary>
+        /// 决定身体朝哪转：
+        ///   · 瞄准中、或刚开过枪 → 正面朝准心（视线方向）；
+        ///   · 否则在移动 → 正面朝移动方向（左右平移就侧身对着移动方向）；
+        ///   · 站着不动且没开枪 → 保持当前朝向，不会自己乱转。
+        /// </summary>
+        private void UpdateFacing(Vector3 wish)
+        {
+            bool faceAim = IsAiming || Time.time < _fireFacingUntil;
+
+            float targetYaw;
+
+            if (faceAim)
+            {
+                targetYaw = _yaw;
+            }
+            else if (wish.sqrMagnitude > 0.0001f)
+            {
+                targetYaw = Mathf.Atan2(wish.x, wish.z) * Mathf.Rad2Deg;
+            }
+            else
+            {
+                targetYaw = _bodyYaw;
+            }
+
+            _bodyYaw = Mathf.MoveTowardsAngle(_bodyYaw, targetYaw, turnSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Euler(0f, _bodyYaw, 0f);
+        }
+
+        /// <summary>开枪时让身体立刻正对准心，哪怕没有按右键瞄准。</summary>
+        public void ForceFacingAim(float seconds)
+        {
+            _fireFacingUntil = Mathf.Max(_fireFacingUntil, Time.time + Mathf.Max(0f, seconds));
         }
 
         private void ApplyGravityAndMove()

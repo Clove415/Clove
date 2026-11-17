@@ -42,6 +42,9 @@ namespace IronDawn
         private string _statusLine;
         private byte _lastAttackerId;
 
+        private float _blindUntil;
+        private float _blindStrength;
+
         public Mode CurrentMode { get; private set; }
         public string PlayerName { get; private set; }
         public int LocalSlot { get; private set; }
@@ -52,12 +55,29 @@ namespace IronDawn
         public PlayerController LocalController { get { return _player; } }
         public LanNetManager Net { get { return _net; } }
         public Transform LocalPlayerTransform { get { return _localPlayer != null ? _localPlayer.transform : null; } }
+
+        /// <summary>世界根节点。投掷物之类的临时物体挂在这里，离开对局时一起销毁。</summary>
+        public Transform WorldRoot { get { return _worldRoot; } }
         public Camera ActiveCamera { get { return CurrentMode == Mode.Menu ? _menuCamera : _camera; } }
         public float RespawnAt { get { return _respawnAt; } }
         public string StatusLine { get { return _statusLine; } }
         public float StatusUntil { get { return _statusUntil; } }
         public float HitmarkerUntil { get { return _hitmarkerUntil; } }
         public float HitFlashUntil { get { return _hitFlashUntil; } }
+
+        /// <summary>闪光致盲强度（0..1），HUD 用它画白屏。</summary>
+        /// <summary>闪光致盲强度（0..1）。被闪到时满值全白，只在最后半秒淡出。</summary>
+        public float BlindStrength
+        {
+            get
+            {
+                float remaining = _blindUntil - Time.time;
+                if (remaining <= 0f) return 0f;
+
+                // 前段保持纯白（alpha = 1），最后 0.55 秒线性退白，避免硬切
+                return _blindStrength * Mathf.Clamp01(remaining / 0.55f);
+            }
+        }
         public IList<RosterEntry> Roster { get { return _net != null ? _net.Roster : null; } }
         public IEnumerable<RemotePlayer> Remotes { get { return _remotes.Values; } }
         public bool InMatch { get { return CurrentMode == Mode.Playing; } }
@@ -297,6 +317,7 @@ namespace IronDawn
             net.ShotArrived += HandleRemoteShot;
             net.DeathArrived += HandleRemoteDeath;
             net.RespawnArrived += HandleRemoteRespawn;
+            net.ThrowableArrived += HandleRemoteThrowable;
             net.Terminated += HandleTerminated;
 
             return net;
@@ -312,6 +333,7 @@ namespace IronDawn
                 _net.ShotArrived -= HandleRemoteShot;
                 _net.DeathArrived -= HandleRemoteDeath;
                 _net.RespawnArrived -= HandleRemoteRespawn;
+                _net.ThrowableArrived -= HandleRemoteThrowable;
                 _net.Terminated -= HandleTerminated;
 
                 _net.Stop();
@@ -345,6 +367,8 @@ namespace IronDawn
             _hitFlashUntil = 0f;
             _statusUntil = 0f;
             _statusLine = null;
+            _blindUntil = 0f;
+            _blindStrength = 0f;
         }
 
         // ---------------- 本地玩家 ----------------
@@ -422,6 +446,7 @@ namespace IronDawn
             TeleportLocal(position, yaw);
             _playerHealth.ResetToFull();
             if (_player != null) _player.InputLocked = false;
+            if (_combat != null) _combat.ResetLoadout();
 
             if (_net != null)
             {
@@ -525,7 +550,7 @@ namespace IronDawn
                 _worldRoot, entry.name, position, yaw, entry.spawnIndex);
 
             RemotePlayer proxy = rig.root.AddComponent<RemotePlayer>();
-            proxy.Setup(entry.id, entry.name, entry.spawnIndex, rig.visual, rig.weaponPivot);
+            proxy.Setup(entry.id, entry.name, entry.spawnIndex, rig.visual, rig.weaponPivot, rig.weaponModels);
 
             _remotes[entry.id] = proxy;
         }
@@ -557,8 +582,13 @@ namespace IronDawn
 
         private void HandleRemoteShot(ShotData d)
         {
-            Tracer.Draw(d.from, d.to, Palette.PlayerTracer, 0.03f, 0.05f);
-            Tracer.Flash(d.to, 0.09f, Palette.Muzzle, 0.05f);
+            // 近战只闪一下，子弹才画弹道
+            if (d.kind == 1) Tracer.Flash(d.to, 0.14f, new Color(1f, 0.72f, 0.62f), 0.06f);
+            else
+            {
+                Tracer.Draw(d.from, d.to, Palette.PlayerTracer, 0.03f, 0.05f);
+                Tracer.Flash(d.to, 0.09f, Palette.Muzzle, 0.05f);
+            }
 
             if (_net == null || d.hit == 0) return;
 
@@ -588,6 +618,56 @@ namespace IronDawn
 
             RemotePlayer proxy;
             if (_remotes.TryGetValue(d.id, out proxy)) proxy.ApplyRespawn(d);
+        }
+
+        /// <summary>别人扔的道具：本地也生成一份弹体，效果各自结算。</summary>
+        private void HandleRemoteThrowable(ThrowableData d)
+        {
+            if (_net == null || d.owner == _net.LocalId) return;
+
+            Throwables.Spawn((ThrowableKind)d.kind, d.origin, d.velocity, _worldRoot, d.owner);
+        }
+
+        // ---------------- 投掷物伤害结算 ----------------
+
+        /// <summary>高爆伤害由被炸的本地玩家结算。</summary>
+        public void NotifyLocalExplosion(float damage, Vector3 center, byte attacker)
+        {
+            if (_playerHealth == null || !_playerHealth.IsAlive) return;
+
+            // 致命伤害会触发 Health.Died → HandleLocalDied，死亡广播与记分都在那里完成
+            AttributeAttack(attacker);
+            _playerHealth.ApplyDamage(damage, center, Vector3.up, null);
+            _hitFlashUntil = Time.time + 0.45f;
+        }
+
+        /// <summary>燃烧伤害按 tick 结算。</summary>
+        public void NotifyLocalFireDamage(float damage, byte attacker)
+        {
+            if (_playerHealth == null || !_playerHealth.IsAlive) return;
+
+            Vector3 point = _localPlayer != null ? _localPlayer.transform.position : Vector3.zero;
+            AttributeAttack(attacker);
+            _playerHealth.ApplyDamage(damage, point, Vector3.up, null);
+            _hitFlashUntil = Time.time + 0.2f;
+        }
+
+        /// <summary>把自己炸死的记分记到投掷者头上，自伤不算别人的击杀。</summary>
+        private void AttributeAttack(byte attacker)
+        {
+            if (_net == null || attacker == 0) return;
+            if (attacker == _net.LocalId) return;
+
+            _lastAttackerId = attacker;
+        }
+
+        public void ApplyBlind(float duration, float strength)
+        {
+            float end = Time.time + duration;
+            if (end <= _blindUntil) return;
+
+            _blindUntil = end;
+            _blindStrength = Mathf.Clamp01(strength);
         }
 
         private void HandleTerminated(string reason)

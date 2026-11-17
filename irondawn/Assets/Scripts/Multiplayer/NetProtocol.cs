@@ -20,7 +20,8 @@ namespace IronDawn.Multiplayer
         Death = 7,
         Respawn = 8,
         Ping = 9,
-        Pong = 10
+        Pong = 10,
+        Throwable = 11
     }
 
     [Flags]
@@ -37,7 +38,7 @@ namespace IronDawn.Multiplayer
     /// <summary>所有联机常量。两端都读这里，改一处就同步。</summary>
     public static class NetConfig
     {
-        public const byte ProtocolVersion = 1;
+        public const byte ProtocolVersion = 2;
         public const int GamePort = 47800;
         public const int BeaconPort = 47801;
         public const int MaxPlayers = 8;
@@ -60,6 +61,8 @@ namespace IronDawn.Multiplayer
         public float pitch;
         public PlayerFlags flags;
         public float health;
+        public byte weapon;      // WeaponSlot
+        public byte throwable;   // ThrowableKind
     }
 
     public struct ShotData
@@ -69,6 +72,15 @@ namespace IronDawn.Multiplayer
         public Vector3 to;
         public byte hit;
         public float damage;
+        public byte kind;        // 0 = 子弹，1 = 近战
+    }
+
+    public struct ThrowableData
+    {
+        public byte owner;
+        public byte kind;
+        public Vector3 origin;
+        public Vector3 velocity;
     }
 
     public struct DeathData
@@ -282,6 +294,8 @@ namespace IronDawn.Multiplayer
             w.Float(d.pitch);
             w.Byte((byte)d.flags);
             w.Float(d.health);
+            w.Byte(d.weapon);
+            w.Byte(d.throwable);
             return w.Done();
         }
 
@@ -294,6 +308,8 @@ namespace IronDawn.Multiplayer
             d.pitch = r.Float();
             d.flags = (PlayerFlags)r.Byte();
             d.health = r.Float();
+            d.weapon = r.Byte();
+            d.throwable = r.Byte();
             return d;
         }
 
@@ -305,6 +321,7 @@ namespace IronDawn.Multiplayer
             w.Points(d.to);
             w.Byte(d.hit);
             w.Float(d.damage);
+            w.Byte(d.kind);
             return w.Done();
         }
 
@@ -316,6 +333,27 @@ namespace IronDawn.Multiplayer
             d.to = r.Points();
             d.hit = r.Byte();
             d.damage = r.Float();
+            d.kind = r.Byte();
+            return d;
+        }
+
+        public static byte[] Throwable(ThrowableData d)
+        {
+            NetWriter w = new NetWriter(NetMsg.Throwable);
+            w.Byte(d.owner);
+            w.Byte(d.kind);
+            w.Points(d.origin);
+            w.Points(d.velocity);
+            return w.Done();
+        }
+
+        public static ThrowableData ReadThrowable(NetReader r)
+        {
+            ThrowableData d;
+            d.owner = r.Byte();
+            d.kind = r.Byte();
+            d.origin = r.Points();
+            d.velocity = r.Points();
             return d;
         }
 

@@ -3,8 +3,9 @@ using UnityEngine;
 namespace IronDawn.Multiplayer
 {
     /// <summary>
-    /// 本地玩家的网络出口：按固定频率上报位置/朝向/姿态/血量，
-    /// 并把每一发子弹的落点告诉其他人（打中了谁由射击端判定）。
+    /// 本地玩家的网络出口：按固定频率上报位置/朝向/姿态/血量/手持武器，
+    /// 并把每一发子弹、每一次近战、每一颗投掷物告诉其他人。
+    /// 命中与否仍由射击端判定，扣血由被打的一方自己结算。
     /// </summary>
     public sealed class PlayerNetSync : MonoBehaviour
     {
@@ -23,12 +24,20 @@ namespace IronDawn.Multiplayer
 
         void OnEnable()
         {
-            if (combat != null) combat.ShotResolved += HandleShot;
+            if (combat != null)
+            {
+                combat.ShotResolved += HandleShot;
+                combat.ThrowResolved += HandleThrow;
+            }
         }
 
         void OnDisable()
         {
-            if (combat != null) combat.ShotResolved -= HandleShot;
+            if (combat != null)
+            {
+                combat.ShotResolved -= HandleShot;
+                combat.ThrowResolved -= HandleThrow;
+            }
         }
 
         private void HandleShot(PlayerCombat.ShotInfo shot)
@@ -42,7 +51,16 @@ namespace IronDawn.Multiplayer
             d.to = shot.to;
             d.hit = shot.hitId;
             d.damage = shot.damage;
+            d.kind = shot.kind;
             net.PublishShot(d);
+        }
+
+        private void HandleThrow(ThrowableData data)
+        {
+            LanNetManager net = LanNetManager.Instance;
+            if (net == null || !net.InMatch) return;
+
+            net.PublishThrowable(data);
         }
 
         void Update()
@@ -71,6 +89,8 @@ namespace IronDawn.Multiplayer
             d.pitch = controller.cameraRig != null ? controller.cameraRig.Pitch : 0f;
             d.flags = flags;
             d.health = health != null ? health.Normalized : 1f;
+            d.weapon = combat != null ? (byte)combat.Slot : (byte)0;
+            d.throwable = combat != null ? (byte)combat.Throwable : (byte)0;
 
             net.PublishState(d);
         }

@@ -46,16 +46,23 @@ namespace IronDawn
             }
         }
 
-        /// <summary>只写第一象限，Build 时翻转出另外三个象限。</summary>
+        /// <summary>
+        /// 只写第一象限，Build 时翻转出另外三个象限。
+        ///
+        /// 高度约定：1.8 米的掩体会让人卡在"头皮位"——身体藏住了，脑袋露在外面，
+        /// 双方都只能互相点头。所以战斗掩体统一压到 2.05 米（略高过人物），
+        /// 既能完全藏住站姿，又不会让场地变成纯墙局。
+        /// 例外是"站立平台"和它的台阶：平台要保持可以跳上去，台阶要能踩。
+        /// </summary>
         private static readonly CoverSpec[] QuadrantCovers =
         {
-            new CoverSpec( 8.5f,  6.0f, 5.5f, 1.5f, 2.0f),
-            new CoverSpec(20.0f, 14.0f, 2.0f, 2.4f, 7.0f),
-            new CoverSpec(11.0f, 21.0f, 7.0f, 1.2f, 2.0f),
-            new CoverSpec(24.0f,  4.0f, 2.0f, 1.8f, 6.0f),
-            new CoverSpec(21.0f, 25.0f, 7.0f, 1.5f, 7.0f),
-            new CoverSpec(16.6f, 25.0f, 1.8f, 0.72f, 7.0f),
-            new CoverSpec(26.5f, 20.0f, 2.0f, 1.3f, 2.6f)
+            new CoverSpec( 8.5f,  6.0f, 5.5f, 2.05f, 2.0f),
+            new CoverSpec(20.0f, 14.0f, 2.0f, 2.40f, 7.0f),
+            new CoverSpec(11.0f, 21.0f, 7.0f, 2.05f, 2.0f),
+            new CoverSpec(24.0f,  4.0f, 2.0f, 2.05f, 6.0f),
+            new CoverSpec(21.0f, 25.0f, 7.0f, 1.50f, 7.0f),   // 站立平台：保持可跳上
+            new CoverSpec(16.6f, 25.0f, 1.8f, 0.72f, 7.0f),   // 上台台阶
+            new CoverSpec(26.5f, 20.0f, 2.0f, 2.05f, 2.6f)
         };
 
         public Transform root;
@@ -135,11 +142,11 @@ namespace IronDawn
             Prim.Box("center_dais", root, new Vector3(0f, 0.3f, 0f), new Vector3(12f, 0.6f, 12f), Palette.Raised);
             Prim.Box("center_pillar", root, new Vector3(0f, 2.1f, 0f), new Vector3(3.2f, 3f, 3.2f), Palette.WallTrim);
 
-            // 高台四边的短墙：可以让上台的人有遮挡，也让下面的人有射击角度
-            Prim.Box("center_ctrl_n", root, new Vector3(0f, 1.25f, 6.9f), new Vector3(2.6f, 1.3f, 1.3f), Palette.Cover);
-            Prim.Box("center_ctrl_s", root, new Vector3(0f, 1.25f, -6.9f), new Vector3(2.6f, 1.3f, 1.3f), Palette.Cover);
-            Prim.Box("center_ctrl_e", root, new Vector3(6.9f, 1.25f, 0f), new Vector3(1.3f, 1.3f, 2.6f), Palette.Cover);
-            Prim.Box("center_ctrl_w", root, new Vector3(-6.9f, 1.25f, 0f), new Vector3(1.3f, 1.3f, 2.6f), Palette.Cover);
+            // 高台四边的短墙：同样抬到 2.05 米，避免站台边缘只剩头皮
+            Prim.Box("center_ctrl_n", root, new Vector3(0f, 1.03f, 6.9f), new Vector3(2.6f, 2.05f, 1.3f), Palette.Cover);
+            Prim.Box("center_ctrl_s", root, new Vector3(0f, 1.03f, -6.9f), new Vector3(2.6f, 2.05f, 1.3f), Palette.Cover);
+            Prim.Box("center_ctrl_e", root, new Vector3(6.9f, 1.03f, 0f), new Vector3(1.3f, 2.05f, 2.6f), Palette.Cover);
+            Prim.Box("center_ctrl_w", root, new Vector3(-6.9f, 1.03f, 0f), new Vector3(1.3f, 2.05f, 2.6f), Palette.Cover);
         }
 
         private void BuildSpawnPads()
